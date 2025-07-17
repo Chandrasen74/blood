@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blood Pressure Tracker</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- jsPDF CDN for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.14/jspdf.plugin.autotable.min.js"></script>
+    <!-- Chart.js CDN for graphing -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Default body background for profile selection screen - a gradient mix of all themes */
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(to bottom right, #ECFDF5, #E0F2FE, #FDF2F8, #BFDBFE); /* Light green, light blue, light pink, lighter blue */
+            transition: background 0.5s ease-in-out; /* Smooth transition for theme change */
+            padding: 2rem; /* Overall padding for the body */
+            background-size: 400% 400%; /* Needed for background-position animation */
+            min-height: 100vh; /* Ensure body takes full height */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Keyframes for the moving gradient animation */
+        @keyframes gradient-animation {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Blur effect for the content wrapper when a modal is active */
+        #appContentWrapper.blurred-background {
+            filter: blur(5px);
+            pointer-events: none; /* Prevent interaction with blurred content */
+            transition: filter 0.3s ease; /* Smooth transition for blur */
+        }
+
+        /* Base styles for elements that will be themed using CSS variables */
+        .themed-bg {
+            background-color: var(--theme-bg-color);
+            color: var(--theme-text-color-dark);
+        }
+        .themed-text-dark {
+            color: var(--theme-text-color-dark);
+        }
+        .themed-text-light {
+            color: var(--theme-text-color-light);
+        }
+        .themed-input-field {
+            border: 1px solid var(--theme-primary-color); /* Use primary color for border */
+            background-color: var(--theme-input-bg-color);
+            color: var(--theme-text-color-dark);
+            border-radius: 0.375rem;
+            padding: 0.75rem 1rem; /* Increased padding */
+            width: 100%;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .themed-input-field:focus {
+            outline: none;
+            border-color: var(--theme-primary-hover-color);
+            box-shadow: 0 0 0 3px rgba(var(--theme-primary-color-rgb), 0.2); /* Dynamic shadow color */
+        }
+        .themed-input-field.invalid {
+            border-color: #ef4444; /* Red 500 */
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+        }
+        .themed-input-field::placeholder {
+            color: var(--theme-text-color-dark);
+            opacity: 0.7;
+        }
+        .themed-btn-primary {
+            background-color: var(--theme-primary-color);
+            color: var(--theme-text-color-light);
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: background-color 0.2s, transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .themed-btn-primary:hover {
+            background-color: var(--theme-primary-hover-color);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        }
+        .themed-btn-secondary {
+            background-color: var(--theme-secondary-color);
+            color: var(--theme-text-color-light);
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: background-color 0.2s, transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .themed-btn-secondary:hover {
+            background-color: var(--theme-secondary-hover-color);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        }
+        .themed-table-header-bg {
+            background-color: var(--theme-table-header-bg);
+            color: var(--theme-text-color-dark);
+            padding: 1rem 1.25rem; /* Increased padding */
+        }
+        .themed-table-row-even {
+            background-color: var(--theme-table-row-even-bg);
+        }
+        .themed-table-row-hover {
+            background-color: var(--theme-table-row-hover-bg);
+        }
+        .themed-link {
+            color: var(--theme-primary-color);
+        }
+        .themed-message-error {
+            background-color: var(--theme-message-error-bg);
+            border-color: var(--theme-message-error-border);
+            color: var(--theme-message-error-text);
+        }
+        .themed-message-success {
+            background-color: var(--theme-message-success-bg);
+            border-color: var(--theme-message-success-border);
+            color: var(--theme-message-success-text);
+        }
+
+        /* Theme definitions using data-theme attribute on body */
+        body[data-theme="Sarla"] {
+            /* Forest Green Palette */
+            --theme-bg-color: #D4EDDA; /* Lightest green for containers */
+            --theme-bg-gradient: linear-gradient(to bottom right, #D4EDDA, #A8D8B6, #81C784); /* Extended gradient for animation */
+            --theme-input-bg-color: #FFFFFF; /* White for inputs */
+            --theme-primary-color: #2F855A; /* Forest Green */
+            --theme-primary-hover-color: #276749; /* Darker Forest Green */
+            --theme-secondary-color: #6B7280; /* Gray 500 */
+            --theme-secondary-hover-color: #4B5563; /* Gray 600 */
+            --theme-text-color-dark: #1E4620; /* Dark green for text */
+            --theme-text-color-light: #FFFFFF;
+            --theme-table-header-bg: #81C784; /* Medium green */
+            --theme-table-row-even-bg: #EAF7ED; /* Very light green */
+            --theme-table-row-hover-bg: #C8E6C9; /* Lighter green */
+            --theme-message-error-bg: #FEE2E2;
+            --theme-message-error-border: #FCA5A5;
+            --theme-message-error-text: #DC2626;
+            --theme-message-success-bg: #D1FAE5;
+            --theme-message-success-border: #6EE7B7;
+            --theme-message-success-text: #065F46;
+            --theme-primary-color-rgb: 47, 133, 90; /* RGB for primary color */
+        }
+
+        body[data-theme="Radhakant"] {
+            /* Improved Contrast Gray/Blackish Theme */
+            --theme-bg-color: #212121; /* Darker gray background for containers */
+            --theme-bg-gradient: linear-gradient(to bottom right, #212121, #424242, #616161); /* Extended gradient for animation */
+            --theme-input-bg-color: #424242; /* Medium dark gray for inputs */
+            --theme-primary-color: #616161; /* Gray 600 */
+            --theme-primary-hover-color: #757575; /* Gray 700 */
+            --theme-secondary-color: #BDBDBD; /* Light gray for secondary */
+            --theme-secondary-hover-color: #9E9E9E; /* Medium gray for secondary hover */
+            --theme-text-color-dark: #E0E0E0; /* Very light gray for text (high contrast) */
+            --theme-text-color-light: #FFFFFF;
+            --theme-table-header-bg: #424242; /* Medium dark gray */
+            --theme-table-row-even-bg: #303030; /* Slightly lighter dark gray */
+            --theme-table-row-hover-bg: #424242; /* Medium dark gray */
+            --theme-message-error-bg: #FEE2E2;
+            --theme-message-error-border: #FCA5A5;
+            --theme-message-error-text: #DC2626;
+            --theme-message-success-bg: #D1FAE5;
+            --theme-message-success-border: #6EE7B7;
+            --theme-message-success-text: #065F46;
+            --theme-primary-color-rgb: 97, 97, 97; /* RGB for primary color */
+        }
+
+        body[data-theme="Chandrakant"] {
+            /* Navy Blue Palette */
+            --theme-bg-color: #E3F2FD; /* Lightest blue for containers */
+            --theme-bg-gradient: linear-gradient(to bottom right, #E3F2FD, #BBDEFB, #90CAF9); /* Extended gradient for animation */
+            --theme-input-bg-color: #FFFFFF; /* White for inputs */
+            --theme-primary-color: #1A237E; /* Navy Blue */
+            --theme-primary-hover-color: #0D47A1; /* Darker Navy Blue */
+            --theme-secondary-color: #6B7280; /* Gray 500 */
+            --theme-secondary-hover-color: #4B5563; /* Gray 600 */
+            --theme-text-color-dark: #0D1B2A; /* Very dark blue for text */
+            --theme-text-color-light: #FFFFFF;
+            --theme-table-header-bg: #90CAF9; /* Medium blue */
+            --theme-table-row-even-bg: #EBF5FC; /* Very light blue */
+            --theme-table-row-hover-bg: #D0E3F5; /* Lighter blue */
+            --theme-message-error-bg: #FEE2E2;
+            --theme-message-error-border: #FCA5A5;
+            --theme-message-error-text: #DC2626;
+            --theme-message-success-bg: #D1FAE5;
+            --theme-message-success-border: #6EE7B7;
+            --theme-message-success-text: #065F46;
+            --theme-primary-color-rgb: 26, 35, 126; /* RGB for primary color */
+        }
+
+        body[data-theme="Kanchan"] {
+            /* Red and Crimson Palette */
+            --theme-bg-color: #FFEBEE; /* Lightest red for containers */
+            --theme-bg-gradient: linear-gradient(to bottom right, #FFEBEE, #FFCDD2, #EF9A9A); /* Extended gradient for animation */
+            --theme-input-bg-color: #FFFFFF; /* White for inputs */
+            --theme-primary-color: #D32F2F; /* Crimson Red */
+            --theme-primary-hover-color: #C62828; /* Darker Crimson Red */
+            --theme-secondary-color: #6B7280; /* Gray 500 */
+            --theme-secondary-hover-color: #4B5563; /* Gray 600 */
+            --theme-text-color-dark: #B71C1C; /* Dark red for text */
+            --theme-text-color-light: #FFFFFF;
+            --theme-table-header-bg: #EF9A9A; /* Medium red */
+            --theme-table-row-even-bg: #FFEBEB; /* Very light red */
+            --theme-table-row-hover-bg: #FFDDE2; /* Lighter red */
+            --theme-message-error-bg: #FEE2E2;
+            --theme-message-error-border: #FCA5A5;
+            --theme-message-error-text: #DC2626;
+            --theme-message-success-bg: #D1FAE5;
+            --theme-message-success-border: #6EE7B7;
+            --theme-message-success-text: #065F46;
+            --theme-primary-color-rgb: 211, 47, 47; /* RGB for primary color */
+        }
+
+        /* Profile button specific styling (for selection screen) */
+        .profile-button-sarla { background-color: #2F855A; color: white; }
+        .profile-button-sarla:hover { background-color: #276749; }
+        .profile-button-radhakant { background-color: #616161; color: white; }
+        .profile-button-radhakant:hover { background-color: #757575; }
+        .profile-button-chandrakant { background-color: #1A237E; color: white; }
+        .profile-button-chandrakant:hover { background-color: #0D47A1; }
+        .profile-button-kanchan { background-color: #D32F2F; color: white; }
+        .profile-button-kanchan:hover { background-color: #C62828; }
+
+        /* General element styling based on CSS variables set by data-theme */
+        /* These rules now correctly target the body for theme application */
+        body[data-theme] .themed-bg-container {
+            background-color: var(--theme-bg-color);
+            color: var(--theme-text-color-dark);
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+        }
+        body[data-theme] h1, body[data-theme] h2 {
+            color: var(--theme-text-color-dark);
+            margin-bottom: 1.5rem;
+        }
+        body[data-theme] label, body[data-theme] p {
+            color: var(--theme-text-color-dark);
+        }
+        body[data-theme] #auth-status, body[data-theme] #user-id {
+            color: var(--theme-text-color-dark);
+        }
+        body[data-theme] .input-field {
+            border-color: var(--theme-primary-color);
+            background-color: var(--theme-input-bg-color);
+            color: var(--theme-text-color-dark);
+        }
+        body[data-theme] .input-field::placeholder {
+            color: var(--theme-text-color-dark);
+            opacity: 0.7;
+        }
+        .table-container {
+            background-color: var(--theme-bg-color);
+            border-radius: 0.75rem;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        body[data-theme] th {
+            background-color: var(--theme-table-header-bg);
+            color: var(--theme-text-color-dark);
+        }
+        body[data-theme] tr:nth-child(even) {
+            background-color: var(--theme-table-row-even-bg);
+        }
+        body[data-theme] tr:hover {
+            background-color: var(--theme-table-row-hover-bg);
+        }
+        body[data-theme] #changeProfileBtn {
+            color: var(--theme-primary-color);
+        }
+        body[data-theme] #current-profile {
+            color: var(--theme-primary-color);
+        }
+        body[data-theme] .text-red-500 {
+            color: #EF4444;
+        }
+        body[data-theme] #messageBox.themed-message-error {
+            background-color: var(--theme-message-error-bg);
+            border-color: var(--theme-message-error-border);
+            color: var(--theme-message-error-text);
+        }
+        body[data-theme] #messageBox.themed-message-success {
+            background-color: var(--theme-message-success-bg);
+            border-color: var(--theme-message-success-border);
+            color: var(--theme-message-success-text);
+        }
+        /* Chart container specific styling */
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+            background-color: var(--theme-input-bg-color);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Modal specific styling */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100; /* Higher than blurred content */
+        }
+        .modal-content.themed-bg-container {
+            background-color: var(--theme-bg-color);
+            color: var(--theme-text-color-dark);
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+
+        /* Loading Overlay Styling */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            font-size: 1.5rem;
+            color: #4f46e5;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+        .loading-overlay::before {
+            content: '';
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4f46e5;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Custom Confirmation Modal (outside appContentWrapper to avoid blur) -->
+    <div id="confirmationModal" class="modal-backdrop hidden">
+        <div class="modal-content themed-bg-container">
+            <p id="modalMessage" class="text-lg mb-6 themed-text-dark"></p>
+            <div class="flex justify-center gap-4">
+                <button id="modalConfirmBtn" class="themed-btn-primary px-6 py-2">Confirm</button>
+                <button id="modalCancelBtn" class="themed-btn-secondary px-6 py-2">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay (outside appContentWrapper to avoid blur) -->
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        Processing...
+    </div>
+
+    <!-- Main application content wrapper -->
+    <div id="appContentWrapper" class="flex flex-col items-center min-h-screen py-8 px-4 sm:px-6 lg:px-8 w-full">
+        <!-- Profile Selection Screen -->
+        <div id="profileSelectionScreen" class="bg-white p-6 sm:p-8 rounded-xl shadow-lg w-full max-w-md text-center">
+            <h1 class="text-3xl font-bold text-gray-800 mb-6">Select a Profile</h1>
+            <div id="auth-status-profile" class="text-sm text-gray-500 mb-4">Connecting to database...</div>
+            <div id="profileButtons" class="grid grid-cols-2 gap-4">
+                <!-- Profile buttons will be inserted here by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Main Blood Pressure Tracker UI -->
+        <div id="mainApp" class="hidden w-full max-w-5xl space-y-8">
+            <!-- Main Input Form -->
+            <div id="inputFormContainer" class="mx-auto themed-bg-container">
+                <h1 class="text-3xl font-bold text-center themed-text-dark">Blood Pressure Tracker</h1>
+                <div id="auth-container" class="text-center mb-4">
+                    <p id="current-profile" class="text-lg font-semibold mb-2 themed-link"></p>
+                    <p id="auth-status" class="text-sm mb-2 themed-text-dark">Connected</p>
+                    <p id="user-id" class="text-xs break-all themed-text-dark"></p>
+                    <button id="changeProfileBtn" class="themed-btn-secondary py-2 px-4 text-sm mt-2">Change Profile</button>
+                </div>
+
+                <div id="messageBox" class="hidden px-4 py-3 rounded relative mb-4" role="alert">
+                    <strong class="font-bold">Alert!</strong>
+                    <span class="block sm:inline" id="messageText"></span>
+                    <span class="absolute top-0 bottom-0 right-0 px-4 py-3 cursor-pointer" onclick="document.getElementById('messageBox').classList.add('hidden');">
+                        <svg class="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><title>Close</title><path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/></svg>
+                    </span>
+                </div>
+
+                <input type="hidden" id="readingId">
+                <div class="mb-4">
+                    <label for="date" class="block text-sm font-medium mb-2 themed-text-dark">Date:</label>
+                    <input type="date" id="date" class="themed-input-field">
+                    <p id="dateError" class="text-red-500 text-xs italic hidden">Please select a date.</p>
+                </div>
+                <div class="mb-4">
+                    <label for="time" class="block text-sm font-medium mb-2 themed-text-dark">Time:</label>
+                    <input type="time" id="time" class="themed-input-field">
+                    <p id="timeError" class="text-red-500 text-xs italic hidden">Please select a time.</p>
+                </div>
+                <div class="mb-4">
+                    <label for="pulse" class="block text-sm font-medium mb-2 themed-text-dark">Pulse (BPM):</label>
+                    <input type="number" id="pulse" class="themed-input-field" placeholder="e.g., 70">
+                    <p id="pulseError" class="text-red-500 text-xs italic hidden">Please enter a valid pulse.</p>
+                </div>
+                <div class="mb-4">
+                    <label for="sys" class="block text-sm font-medium mb-2 themed-text-dark">Systolic (mmHg):</label>
+                    <input type="number" id="sys" class="themed-input-field" placeholder="e.g., 120">
+                    <p id="sysError" class="text-red-500 text-xs italic hidden">Please enter a valid systolic reading.</p>
+                </div>
+                <div class="mb-4">
+                    <label for="dys" class="block text-sm font-medium mb-2 themed-text-dark">Diastolic (mmHg):</label>
+                    <input type="number" id="dys" class="themed-input-field" placeholder="e.g., 80">
+                    <p id="dysError" class="text-red-500 text-xs italic hidden">Please enter a valid diastolic reading.</p>
+                    <p id="sysDysError" class="text-red-500 text-xs italic hidden">Systolic must be greater than or equal to Diastolic.</p>
+                </div>
+                <div class="mb-6">
+                    <label for="notes" class="block text-sm font-medium mb-2 themed-text-dark">Notes (optional):</label>
+                    <textarea id="notes" class="themed-input-field" rows="3" placeholder="e.g., After workout, feeling stressed..."></textarea>
+                </div>
+
+                <button id="addReadingBtn" class="themed-btn-primary w-full mb-4" disabled>Add Reading</button>
+                <button id="updateReadingBtn" class="themed-btn-primary w-full mb-4 hidden" disabled>Update Reading</button>
+                <button id="cancelUpdateBtn" class="themed-btn-secondary w-full py-3 rounded-lg hidden">Cancel Update</button>
+                <button id="clearFormBtn" class="themed-btn-secondary w-full py-3 rounded-lg">Clear Form</button>
+            </div>
+
+            <!-- Readings History Table -->
+            <div id="readingsTableContainer" class="mx-auto themed-bg-container">
+                <h2 class="text-2xl font-bold text-center themed-text-dark">Your Readings History</h2>
+                <div class="table-container mb-6">
+                    <table id="readingsTable" class="min-w-full rounded-lg table-fixed">
+                        <thead>
+                            <tr>
+                                <th class="themed-table-header-bg w-[90px]">Date</th>
+                                <th class="themed-table-header-bg w-[80px]">Time</th>
+                                <th class="themed-table-header-bg w-[60px]">Pulse</th>
+                                <th class="themed-table-header-bg w-[70px]">Systolic</th>
+                                <th class="themed-table-header-bg w-[70px]">Diastolic</th>
+                                <th class="themed-table-header-bg w-[80px]">Category</th>
+                                <th class="themed-table-header-bg w-auto">Notes</th>
+                                <th class="themed-table-header-bg w-[120px]">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Readings will be inserted here by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Chart -->
+            <div id="chartContainer" class="mx-auto themed-bg-container">
+                <h2 class="text-2xl font-bold text-center themed-text-dark">Blood Pressure Trend</h2>
+                <div class="chart-container">
+                    <canvas id="bpChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div id="actionsContainer" class="mx-auto themed-bg-container">
+                <div class="flex flex-col sm:flex-row justify-center gap-4">
+                    <button id="downloadPdfBtn" class="themed-btn-primary flex-1">Download PDF</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // --- Firebase SDK Imports ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, addDoc, setDoc, deleteDoc, onSnapshot, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- jsPDF ---
+        const { jsPDF } = window.jspdf;
+
+        // --- DOM Elements ---
+        const appContentWrapper = document.getElementById('appContentWrapper'); // New wrapper element
+        const profileSelectionScreen = document.getElementById('profileSelectionScreen');
+        const profileButtonsContainer = document.getElementById('profileButtons');
+        const authStatusProfile = document.getElementById('auth-status-profile');
+        const mainApp = document.getElementById('mainApp');
+        const currentProfileDisplay = document.getElementById('current-profile');
+        const changeProfileBtn = document.getElementById('changeProfileBtn');
+
+        const dateInput = document.getElementById('date');
+        const timeInput = document.getElementById('time'); 
+        const pulseInput = document.getElementById('pulse');
+        const sysInput = document.getElementById('sys');
+        const dysInput = document.getElementById('dys');
+        const notesInput = document.getElementById('notes');
+        const readingIdInput = document.getElementById('readingId');
+
+        const addReadingBtn = document.getElementById('addReadingBtn');
+        const updateReadingBtn = document.getElementById('updateReadingBtn');
+        const cancelUpdateBtn = document.getElementById('cancelUpdateBtn');
+        const clearFormBtn = document.getElementById('clearFormBtn');
+
+        const readingsTableBody = document.querySelector('#readingsTable tbody');
+        const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+        const messageBox = document.getElementById('messageBox');
+        const messageText = document.getElementById('messageText');
+        const bpChartCanvas = document.getElementById('bpChart');
+        const bpChartCtx = bpChartCanvas.getContext('2d');
+        
+        const authStatus = document.getElementById('auth-status');
+        const userIdDisplay = document.getElementById('user-id');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+
+        // Validation error message elements
+        const dateError = document.getElementById('dateError');
+        const timeError = document.getElementById('timeError');
+        const pulseError = document.getElementById('pulseError');
+        const sysError = document.getElementById('sysError');
+        const dysError = document.getElementById('dysError');
+        const sysDysError = document.getElementById('sysDysError');
+
+        // Modal elements
+        const confirmationModal = document.getElementById('confirmationModal');
+        const modalMessage = document.getElementById('modalMessage');
+        const modalConfirmBtn = document.getElementById('modalConfirmBtn');
+        const modalCancelBtn = document.getElementById('modalCancelBtn');
+
+        // Themed containers (these are now children of appContentWrapper)
+        const themedContainers = [
+            document.getElementById('inputFormContainer'),
+            document.getElementById('readingsTableContainer'),
+            document.getElementById('chartContainer'),
+            document.getElementById('actionsContainer')
+        ];
+
+        // --- Global State ---
+        let bpChartInstance = null;
+        let db, auth;
+        let currentUserId; // Firebase user ID
+        let selectedProfileName = null; // The chosen profile (Sarla, Radhakant, etc.)
+        let readingsUnsubscribe = null; // To detach the Firestore listener
+        let localReadings = []; // Local cache of readings
+        const profiles = ["Sarla", "Radhakant", "Chandrakant", "Kanchan"];
+
+        // --- Firebase Initialization ---
+        // YOUR ACTUAL FIREBASE CONFIGURATION - REPLACE THE VALUES BELOW
+        const firebaseConfig = {
+            apiKey: "AIzaSyDzq7jnBHC5bydS5W6tlMBvcDmF6mV3SFI",
+            authDomain: "blood-6c59b.firebaseapp.com",
+            projectId: "blood-6c59b",
+            storageBucket: "blood-6c59b.appspot.com",
+            messagingSenderId: "708202672802",
+            appId: "1:708202672802:web:YOUR_WEB_APP_ID_HASH" // You might get a specific web app ID hash from Firebase
+        };
+
+        // Using projectId as a simple app ID for local context
+        const appId = firebaseConfig.projectId; 
+
+        try {
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+        } catch (e) {
+            console.error("Firebase initialization failed:", e);
+            showMessage("Could not connect to the database. Please check your Firebase configuration in the code and ensure Anonymous Auth is enabled in Firebase Console.", "error");
+        }
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUserId = user.uid;
+                authStatus.textContent = "Connected";
+                userIdDisplay.textContent = `Device User ID: ${currentUserId}`; // Show device user ID
+                authStatusProfile.textContent = "Connected";
+                addReadingBtn.disabled = false;
+                updateReadingBtn.disabled = false;
+
+                // Check if a profile was previously selected
+                const storedProfile = localStorage.getItem('selectedProfile');
+                if (storedProfile && profiles.includes(storedProfile)) {
+                    selectedProfileName = storedProfile;
+                    showMainApp();
+                } else {
+                    showProfileSelection();
+                }
+            } else {
+                authStatus.textContent = "Authenticating...";
+                authStatusProfile.textContent = "Authenticating...";
+                userIdDisplay.textContent = "";
+                addReadingBtn.disabled = true;
+                updateReadingBtn.disabled = true;
+                // For local execution, we directly sign in anonymously
+                await signInAnonymously(auth);
+            }
+        });
+
+        async function authenticateUser() {
+            try {
+                showLoading();
+                // Directly sign in anonymously for local execution
+                await signInAnonymously(auth);
+            } catch (error) {
+                console.error("Authentication failed:", error);
+                authStatus.textContent = "Authentication Failed";
+                authStatusProfile.textContent = "Authentication Failed";
+                showMessage("Could not authenticate with the database. Please ensure Anonymous Auth is enabled in Firebase.", "error");
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // --- UI State Management ---
+        function showProfileSelection() {
+            profileSelectionScreen.classList.remove('hidden');
+            mainApp.classList.add('hidden');
+            document.body.removeAttribute('data-theme'); // Remove theme from body
+            // Set the initial gradient background for the body
+            document.body.style.background = 'linear-gradient(to bottom right, #ECFDF5, #E0F2FE, #FDF2F8, #BFDBFE)';
+            document.body.style.animation = 'none'; /* Stop animation on selection screen */
+            renderProfileButtons();
+        }
+
+        function showMainApp() {
+            profileSelectionScreen.classList.add('hidden');
+            mainApp.classList.remove('hidden');
+            currentProfileDisplay.textContent = `Profile: ${selectedProfileName}`;
+            document.body.dataset.theme = selectedProfileName; // Set data-theme attribute on body
+            // The CSS rule `body[data-theme]` will now apply the correct background with animation
+            document.body.style.background = `var(--theme-bg-gradient)`; // Explicitly set body background to gradient
+            document.body.style.animation = 'gradient-animation 15s ease infinite'; /* Start animation on main app */
+            listenForReadings(); // Start listening for data for the selected profile
+            resetForm(); // Reset form for new profile
+        }
+
+        function renderProfileButtons() {
+            profileButtonsContainer.innerHTML = '';
+            profiles.forEach(profile => {
+                const button = document.createElement('button');
+                button.textContent = profile;
+                // Apply specific profile button classes for styling
+                button.className = `py-4 text-xl rounded-lg shadow-md hover:scale-105 transform transition-transform duration-200 profile-button-${profile.toLowerCase()}`;
+                button.onclick = () => selectProfile(profile);
+                profileButtonsContainer.appendChild(button);
+            });
+        }
+
+        function selectProfile(profile) {
+            selectedProfileName = profile;
+            localStorage.setItem('selectedProfile', profile); // Persist selection
+            showMainApp();
+        }
+
+        // --- Loading Indicator Functions ---
+        function showLoading() {
+            loadingOverlay.classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            loadingOverlay.classList.add('hidden');
+        }
+
+        // --- Firestore Data Listener ---
+        function listenForReadings() {
+            if (readingsUnsubscribe) readingsUnsubscribe(); // Detach any old listener
+
+            if (!selectedProfileName) {
+                console.warn("No profile selected, cannot listen for readings.");
+                return;
+            }
+            // Data is now stored under /artifacts/{appId}/public/data/profiles/{profileName}/readings
+            const readingsCol = collection(db, 'artifacts', appId, 'public', 'data', 'profiles', selectedProfileName, 'readings');
+            const q = query(readingsCol);
+
+            readingsUnsubscribe = onSnapshot(q, (querySnapshot) => {
+                localReadings = [];
+                querySnapshot.forEach((doc) => {
+                    localReadings.push({ id: doc.id, ...doc.data() });
+                });
+                renderUI();
+            }, (error) => {
+                console.error("Error fetching readings:", error);
+                showMessage("Failed to fetch real-time data for the selected profile.", "error");
+            });
+        }
+
+        // --- Utility Functions ---
+        function showMessage(message, type = 'error') {
+            messageText.textContent = message;
+            messageBox.classList.remove('hidden');
+            // Apply themed message classes
+            messageBox.className = `px-4 py-3 rounded relative mb-4 ${type === 'error' ? 'themed-message-error' : 'themed-message-success'}`;
+            
+            // Automatically hide message after 5 seconds
+            setTimeout(() => {
+                messageBox.classList.add('hidden');
+            }, 5000);
+        }
+
+        function getCategory(sys, dys) {
+            if (sys >= 180 || dys > 120) return { name: 'Crisis', color: 'bg-red-700' };
+            if (sys >= 140 || dys >= 90) return { name: 'Stage 2', color: 'bg-red-500' };
+            if (sys >= 130 || dys >= 80) return { name: 'Stage 1', color: 'bg-orange-500' };
+            if (sys >= 120 && dys < 80) return { name: 'Elevated', color: 'bg-yellow-500' };
+            if (sys < 120 && dys < 80) return { name: 'Normal', color: 'bg-green-500' };
+            return { name: 'N/A', color: 'bg-gray-400' };
+        }
+
+        // --- Rendering Functions ---
+        function renderUI() {
+            renderTable(localReadings);
+            renderChart(localReadings);
+        }
+
+        function renderTable(readings) {
+            readingsTableBody.innerHTML = '';
+            if (readings.length === 0) {
+                readingsTableBody.innerHTML = `<td colspan="8" class="text-center py-4 themed-text-dark">No readings yet. Add one above!</td>`;
+                return;
+            }
+            // Sort readings by timestamp in descending order for display
+            const sortedReadings = [...readings].sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
+            sortedReadings.forEach((reading, index) => {
+                const { name, color } = getCategory(reading.sys, reading.dys);
+                const row = document.createElement('tr');
+                // Apply themed row backgrounds
+                row.className = index % 2 === 0 ? 'themed-table-row-even' : ''; // Apply even row background
+                row.innerHTML = `
+                    <td class="themed-text-dark py-3 px-4">${reading.date}</td>
+                    <td class="themed-text-dark py-3 px-4">${reading.time}</td>
+                    <td class="themed-text-dark py-3 px-4">${reading.pulse}</td>
+                    <td class="themed-text-dark py-3 px-4">${reading.sys}</td>
+                    <td class="themed-text-dark py-3 px-4">${reading.dys}</td>
+                    <td class="py-3 px-4"><span class="category-badge ${color}">${name}</span></td>
+                    <td class="whitespace-normal max-w-xs themed-text-dark py-3 px-4">${reading.notes || ''}</td>
+                    <td class="flex gap-2 py-3 px-4 min-w-[120px]">
+                        <button class="edit-btn p-2 text-blue-600 hover:text-blue-800" data-id="${reading.id}" aria-label="Edit reading"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg></button>
+                        <button class="delete-btn p-2 text-red-600 hover:text-red-800" data-id="${reading.id}" aria-label="Delete reading"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg></button>
+                    </td>
+                `;
+                readingsTableBody.appendChild(row);
+            });
+        }
+
+        function renderChart(readings) {
+            if (bpChartInstance) bpChartInstance.destroy();
+            
+            // Get computed styles for dynamic colors from body (which now has the data-theme)
+            const style = getComputedStyle(document.body);
+            const themeTextColorDark = style.getPropertyValue('--theme-text-color-dark').trim() || '#374151';
+            const themePrimaryColor = style.getPropertyValue('--theme-primary-color').trim() || 'rgb(79, 70, 229)';
+            
+            // Function to convert hex/rgb to rgba with a fixed alpha
+            const toRgba = (color, alpha) => {
+                if (color.startsWith('#')) {
+                    let r = parseInt(color.slice(1, 3), 16);
+                    let g = parseInt(color.slice(3, 5), 16);
+                    let b = parseInt(color.slice(5, 7), 16);
+                    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                } else if (color.startsWith('rgb(')) {
+                    return color.replace('rgb(', 'rgba(').replace(')', `, ${alpha})`);
+                }
+                // Fallback for named colors or other formats
+                return `rgba(79, 70, 229, ${alpha})`; // Default to indigo if color format is unexpected
+            };
+
+            if (readings.length === 0) {
+                bpChartCtx.clearRect(0, 0, bpChartCanvas.width, bpChartCanvas.height);
+                bpChartCtx.font = '16px Inter';
+                bpChartCtx.fillStyle = themeTextColorDark; // Use dynamic text color
+                bpChartCtx.textAlign = 'center';
+                bpChartCtx.fillText('No data to display. Add readings above.', bpChartCanvas.width / 2, bpChartCanvas.height / 2);
+                return;
+            }
+            
+            // Sort readings by timestamp in ascending order for chart
+            const sortedReadings = [...readings].sort((a, b) => (a.timestamp?.toDate() || 0) - (b.timestamp?.toDate() || 0));
+            const labels = sortedReadings.map(r => `${r.date} ${r.time}`);
+            const systolicData = sortedReadings.map(r => r.sys);
+            const diastolicData = sortedReadings.map(r => r.dys);
+            const pulseData = sortedReadings.map(r => r.pulse);
+
+            bpChartInstance = new Chart(bpChartCtx, {
+                type: 'line', data: { labels, datasets: [
+                    { label: 'Systolic (mmHg)', data: systolicData, borderColor: themePrimaryColor, backgroundColor: toRgba(themePrimaryColor, 0.2), tension: 0.1, fill: false },
+                    { label: 'Diastolic (mmHg)', data: diastolicData, borderColor: 'rgb(239, 68, 68)', backgroundColor: 'rgba(239, 68, 68, 0.2)', tension: 0.1, fill: false },
+                    { label: 'Pulse (BPM)', data: pulseData, borderColor: 'rgb(16, 185, 129)', backgroundColor: 'rgba(16, 185, 129, 0.2)', tension: 0.1, fill: false }
+                ]},
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { 
+                        title: { 
+                            display: true, 
+                            text: 'Readings Over Time', 
+                            font: { size: 18, color: themeTextColorDark } 
+                        }, 
+                        tooltip: { 
+                            mode: 'index', 
+                            intersect: false 
+                        }, 
+                        legend: { 
+                            position: 'bottom',
+                            labels: {
+                                color: themeTextColorDark
+                            }
+                        } 
+                    }, 
+                    scales: { 
+                        y: { 
+                            beginAtZero: false,
+                            title: {
+                                display: true,
+                                text: 'Value (mmHg / BPM)',
+                                color: themeTextColorDark
+                            },
+                            ticks: {
+                                color: themeTextColorDark
+                            },
+                            grid: {
+                                color: toRgba(themeTextColorDark, 0.1) // Use dynamic color with transparency
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Date and Time',
+                                color: themeTextColorDark
+                            },
+                            ticks: {
+                                color: themeTextColorDark
+                            },
+                            grid: {
+                                color: toRgba(themeTextColorDark, 0.1) // Use dynamic color with transparency
+                            }
+                        }
+                    } 
+                }
+            });
+        }
+
+        // --- Form & CRUD Logic ---
+        function resetForm() {
+            readingIdInput.value = '';
+            pulseInput.value = '';
+            sysInput.value = '';
+            dysInput.value = '';
+            notesInput.value = '';
+            populateDateTimeFields();
+            addReadingBtn.classList.remove('hidden');
+            updateReadingBtn.classList.add('hidden');
+            cancelUpdateBtn.classList.add('hidden');
+            clearFormBtn.classList.remove('hidden'); // Ensure clear form button is visible
+            clearValidationErrors();
+        }
+
+        function populateDateTimeFields() {
+            const now = new Date();
+            dateInput.value = now.toISOString().split('T')[0];
+            timeInput.value = now.toTimeString().split(' ')[0].substring(0, 5);
+        }
+
+        function validateForm() {
+            let isValid = true;
+            clearValidationErrors();
+
+            if (!dateInput.value) {
+                dateInput.classList.add('invalid');
+                dateError.classList.remove('hidden');
+                isValid = false;
+            }
+            if (!timeInput.value) {
+                timeInput.classList.add('invalid');
+                timeError.classList.remove('hidden');
+                isValid = false;
+            }
+            const pulse = parseInt(pulseInput.value);
+            if (isNaN(pulse) || pulse <= 0) {
+                pulseInput.classList.add('invalid');
+                pulseError.classList.remove('hidden');
+                isValid = false;
+            }
+            const sys = parseInt(sysInput.value);
+            if (isNaN(sys) || sys <= 0) {
+                sysInput.classList.add('invalid');
+                sysError.classList.remove('hidden');
+                isValid = false;
+            }
+            const dys = parseInt(dysInput.value);
+            if (isNaN(dys) || dys <= 0) {
+                dysInput.classList.add('invalid');
+                dysError.classList.remove('hidden');
+                isValid = false;
+            }
+
+            if (isValid && sys < dys) {
+                sysInput.classList.add('invalid');
+                dysInput.classList.add('invalid');
+                sysDysError.classList.remove('hidden');
+                isValid = false;
+            }
+            return isValid;
+        }
+
+        function clearValidationErrors() {
+            const errorElements = [dateError, timeError, pulseError, sysError, dysError, sysDysError];
+            const inputElements = [dateInput, timeInput, pulseInput, sysInput, dysInput];
+
+            errorElements.forEach(el => el.classList.add('hidden'));
+            inputElements.forEach(el => el.classList.remove('invalid'));
+        }
+
+        async function handleSave(isUpdate = false) {
+            if (!currentUserId || !selectedProfileName) {
+                showMessage("Authentication or profile selection is pending. Please try again.", "error");
+                return;
+            }
+            if (!validateForm()) {
+                showMessage("Please correct the errors in the form.", "error");
+                return;
+            }
+
+            const id = readingIdInput.value;
+            const pulse = parseInt(pulseInput.value);
+            const sys = parseInt(sysInput.value);
+            const dys = parseInt(dysInput.value);
+            const notes = notesInput.value.trim();
+            const dateValue = dateInput.value;
+            const timeValue = timeInput.value;
+
+            // Format date and time for display and consistent storage
+            const displayDate = new Date(dateValue).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const displayTime = new Date(`2000-01-01T${timeValue}`).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+            const readingData = {
+                date: displayDate,
+                time: displayTime,
+                pulse, sys, dys, notes,
+                timestamp: serverTimestamp() // Use server timestamp for consistent ordering
+            };
+            
+            if (isUpdate && id) {
+                showConfirmationModal("Are you sure you want to update this reading?", async () => {
+                    try {
+                        showLoading();
+                        // Corrected Firestore path: /artifacts/{appId}/public/data/profiles/{profileName}/readings
+                        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'profiles', selectedProfileName, 'readings', id);
+                        await setDoc(docRef, readingData, { merge: true }); // Use setDoc with merge for updates
+                        showMessage(`Reading updated successfully!`, 'success');
+                        resetForm();
+                    } catch (error) {
+                        console.error("Error saving reading:", error);
+                        showMessage("Failed to save reading to the database.", "error");
+                    } finally {
+                        hideLoading();
+                    }
+                });
+            } else {
+                try {
+                    showLoading();
+                    // Corrected Firestore path: /artifacts/{appId}/public/data/profiles/{profileName}/readings
+                    const readingsCol = collection(db, 'artifacts', appId, 'public', 'data', 'profiles', selectedProfileName, 'readings');
+                    await addDoc(readingsCol, readingData);
+                    showMessage(`Reading added successfully!`, 'success');
+                    resetForm();
+                } catch (error) {
+                    console.error("Error saving reading:", error);
+                    showMessage("Failed to save reading to the database.", "error");
+                } finally {
+                    hideLoading();
+                }
+            }
+        }
+
+        function handleEdit(id) {
+            const reading = localReadings.find(r => r.id === id);
+            if (!reading) return;
+
+            // Convert display date "DD/MM/YYYY" to "YYYY-MM-DD" for input type="date"
+            const [day, month, year] = reading.date.split('/');
+            dateInput.value = `${year}-${month}-${day}`;
+
+            // Convert display time "HH:MM AM/PM" to "HH:MM" for input type="time"
+            const timeString = reading.time;
+            let [hours, minutes] = timeString.split(' ')[0].split(':');
+            const modifier = timeString.split(' ')[1];
+            if (modifier === 'PM' && hours !== '12') {
+                hours = parseInt(hours, 10) + 12;
+            } else if (modifier === 'AM' && hours === '12') {
+                hours = '00';
+            }
+            timeInput.value = `${hours.toString().padStart(2, '0')}:${minutes}`;
+            
+            pulseInput.value = reading.pulse;
+            sysInput.value = reading.sys;
+            dysInput.value = reading.dys;
+            notesInput.value = reading.notes;
+            readingIdInput.value = reading.id;
+
+            addReadingBtn.classList.add('hidden');
+            updateReadingBtn.classList.remove('hidden');
+            cancelUpdateBtn.classList.remove('hidden');
+            clearFormBtn.classList.add('hidden'); // Hide clear form button during update
+            clearValidationErrors();
+            
+            // Scroll to the row being edited
+            const rowElement = document.querySelector(`tr .edit-btn[data-id="${id}"]`).closest('tr');
+            if (rowElement) {
+                rowElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+            }
+        }
+
+        // Custom confirmation modal logic
+        let confirmCallback = null;
+
+        function showConfirmationModal(message, onConfirm) {
+            modalMessage.textContent = message;
+            confirmationModal.classList.remove('hidden');
+            appContentWrapper.classList.add('blurred-background'); // Apply blur to content wrapper
+            confirmCallback = onConfirm;
+        }
+
+        function hideConfirmationModal() {
+            confirmationModal.classList.add('hidden');
+            appContentWrapper.classList.remove('blurred-background'); // Remove blur from content wrapper
+            confirmCallback = null;
+        }
+
+        modalConfirmBtn.addEventListener('click', () => {
+            if (confirmCallback) {
+                confirmCallback();
+            }
+            hideConfirmationModal();
+        });
+
+        modalCancelBtn.addEventListener('click', () => {
+            hideConfirmationModal();
+        });
+
+        async function handleDelete(id) {
+            showConfirmationModal("Are you sure you want to delete this reading?", async () => {
+                try {
+                    showLoading();
+                    // Corrected Firestore path: /artifacts/{appId}/public/data/profiles/{profileName}/readings
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'profiles', selectedProfileName, 'readings', id);
+                    await deleteDoc(docRef);
+                    showMessage("Reading deleted successfully.", "success");
+                    // The onSnapshot listener will automatically update the UI
+                } catch (error) {
+                    console.error("Error deleting document: ", error);
+                    showMessage("Failed to delete reading from the database.", "error");
+                } finally {
+                    hideLoading();
+                }
+            });
+            // Scroll to the row being deleted
+            const rowElement = document.querySelector(`tr .delete-btn[data-id="${id}"]`).closest('tr');
+            if (rowElement) {
+                rowElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+            }
+        }
+
+        function downloadPdf() {
+            if (localReadings.length === 0) {
+                showMessage("No data to download.", "error");
+                return;
+            }
+            
+            try {
+                showLoading();
+                const doc = new jsPDF();
+                doc.setFont('Inter', 'normal'); // Set font for jsPDF
+                const tableColumn = ["Date", "Time", "Pulse", "Systolic", "Diastolic", "Category", "Notes"];
+                const tableRows = [];
+                // Sort readings by timestamp in ascending order for PDF
+                const sortedReadings = [...localReadings].sort((a, b) => (a.timestamp?.toDate() || 0) - (b.timestamp?.toDate() || 0));
+                sortedReadings.forEach(r => {
+                    const { name } = getCategory(r.sys, r.dys);
+                    tableRows.push([r.date, r.time, r.pulse, r.sys, r.dys, name, r.notes || '']);
+                });
+
+                doc.setFontSize(22);
+                doc.text("Blood Pressure Readings Report", 14, 20);
+                
+                doc.autoTable({ 
+                    head: [tableColumn], 
+                    body: tableRows, 
+                    startY: 30,
+                    styles: { fontSize: 10, cellPadding: 3, font: 'Inter', fontStyle: 'normal' }, // Apply Inter font
+                    headStyles: { fillColor: [224, 231, 255], textColor: [55, 65, 81], fontStyle: 'bold' },
+                    columnStyles: {
+                        0: { cellWidth: 20 }, // Date
+                        1: { cellWidth: 20 }, // Time
+                        2: { cellWidth: 15 }, // Pulse
+                        3: { cellWidth: 20 }, // Systolic
+                        4: { cellWidth: 20 }, // Diastolic
+                        5: { cellWidth: 20 }, // Category
+                        6: { cellWidth: 'auto' } // Notes
+                    }
+                });
+
+                const imgData = bpChartCanvas.toDataURL('image/png');
+                const imgWidth = 180;
+                const imgHeight = (bpChartCanvas.height / bpChartCanvas.width) * imgWidth;
+                let currentY = doc.autoTable.previous.finalY + 10;
+
+                // Add a new page if the chart doesn't fit on the current page
+                if (currentY + imgHeight + 20 > doc.internal.pageSize.height) {
+                    doc.addPage();
+                    currentY = 20;
+                }
+                
+                doc.setFontSize(18);
+                doc.text("Blood Pressure Trend", 14, currentY + 5);
+                doc.addImage(imgData, 'PNG', 14, currentY + 10, imgWidth, imgHeight);
+                
+                doc.save(`blood_pressure_report_${selectedProfileName.toLowerCase()}.pdf`);
+                showMessage("PDF downloaded successfully!", "success");
+            } catch (error) {
+                console.error("Error generating PDF:", error);
+                showMessage("Failed to generate PDF report. Please try again.", "error");
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // --- Event Listeners ---
+        addReadingBtn.addEventListener('click', () => handleSave(false));
+        updateReadingBtn.addEventListener('click', () => handleSave(true));
+        cancelUpdateBtn.addEventListener('click', resetForm);
+        clearFormBtn.addEventListener('click', resetForm);
+        downloadPdfBtn.addEventListener('click', downloadPdf);
+        changeProfileBtn.addEventListener('click', () => {
+            selectedProfileName = null; // Clear selected profile
+            localStorage.removeItem('selectedProfile'); // Clear stored profile
+            if (readingsUnsubscribe) readingsUnsubscribe(); // Stop current listener
+            showProfileSelection(); // Go back to profile selection screen
+            resetForm(); // Reset form state
+        });
+
+        readingsTableBody.addEventListener('click', (e) => {
+            const editBtn = e.target.closest('.edit-btn');
+            const deleteBtn = e.target.closest('.delete-btn');
+            if (editBtn) handleEdit(editBtn.dataset.id);
+            // Changed to check for deleteBtn.dataset.id to ensure it's a valid element
+            if (deleteBtn && deleteBtn.dataset.id) handleDelete(deleteBtn.dataset.id);
+        });
+
+        // Input validation on change
+        [dateInput, timeInput, pulseInput, sysInput, dysInput].forEach(input => {
+            input.addEventListener('input', validateForm);
+        });
+
+        // --- Initial Load ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initial UI state handled by onAuthStateChanged
+        });
+
+        // Re-render chart on window resize to ensure responsiveness
+        window.addEventListener('resize', () => {
+            renderChart(localReadings);
+        });
+    </script>
+</body>
+</html>
